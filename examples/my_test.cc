@@ -7,13 +7,16 @@ You can build using cmake:
 mkdir build && cd build && cmake .. && cmake --build . --target wasmtime-linking
 */
 
+#define _POSIX_C_SOURCE 200809L
+#include <time.h>
+#include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <wasi.h>
 #include <wasm.h>
 #include <wasmtime.h>
-#include <sys/time.h>
+
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -59,10 +62,17 @@ WasmFile read_wasm_file(const char* filename) {
     return result;
 }
 
+static inline uint64_t now_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
 int main() {
   //read wasm from file
   //WasmFile wf = read_wasm_file("examples/fibonacci.wasm");
-  WasmFile wf = read_wasm_file("examples/hash.wasm");
+  //WasmFile wf = read_wasm_file("examples/hash.wasm");
+  WasmFile wf = read_wasm_file("examples/pb_datamining_correlation.wasm");
   // Set up our context
   wasm_engine_t *engine = wasm_engine_new();
   assert(engine != NULL);
@@ -88,9 +98,9 @@ int main() {
   assert(wasi_config);
   wasi_config_inherit_argv(wasi_config);
   wasi_config_inherit_env(wasi_config);
-  wasi_config_inherit_stdin(wasi_config);
-  wasi_config_inherit_stdout(wasi_config);
-  wasi_config_inherit_stderr(wasi_config);
+  //wasi_config_inherit_stdin(wasi_config);
+  //wasi_config_inherit_stdout(wasi_config);
+  //wasi_config_inherit_stderr(wasi_config);
 
   /*char *parameter = "12";
   wasm_byte_vec_t* input = (wasm_byte_vec_t*) malloc(sizeof(wasm_byte_vec_t));
@@ -124,16 +134,15 @@ int main() {
   bool ok = wasmtime_instance_export_get(context, &linking1, "_start", 6, &run);
   assert(ok);
   assert(run.kind == WASMTIME_EXTERN_FUNC);
-  struct timeval start, end;
-  gettimeofday(&start, NULL);
-  //error = wasmtime_func_call(context, &run.of.func, NULL, 0, NULL, 0, &trap);
-  gettimeofday(&end, NULL);
+  uint64_t start = now_ns();
+  error = wasmtime_func_call(context, &run.of.func, NULL, 0, NULL, 0, &trap);
+  uint64_t end = now_ns();
 
-  long seconds = end.tv_sec - start.tv_sec;
-  long micros = end.tv_usec - start.tv_usec;
-  long total_us = seconds * 1000000 + micros;
+  uint64_t diff_ns = end - start;
+  printf("Execution time: %llu ns (%.3f us)\n",
+           (unsigned long long)diff_ns,
+           diff_ns / 1000.0);
 
-  printf("Elapsed time: %ld microseconds\n", total_us);
   if (error != NULL || trap != NULL)
     exit_with_error("failed to call run", error, trap);
 
