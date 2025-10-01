@@ -203,28 +203,25 @@ int main() {
     std::cout << "yielding instantiation 2!" << std::endl;
   }
 
-  
-  error.reset(error_ptr);
-  handle<wasm_trap_t, wasm_trap_delete> trap{trap_ptr};
-  if (error || trap) {
-    exit_with_error("failed to instantiate module 2", error.get(), trap.get());
-  }
-
   call_future1 = nullptr;
   linker1 = nullptr;
   call_future2 = nullptr;
   linker2 = nullptr;
 
   // Lookup our `run` export function
-  wasmtime_extern_t run;
-  bool ok = wasmtime_instance_export_get(context, &instance, "run", 3, &run);
+  wasmtime_extern_t run1, run2;
+  bool ok = wasmtime_instance_export_get(context1, &instance1, "run", 3, &run1);
   assert(ok);
-  assert(run.kind == WASMTIME_EXTERN_FUNC);
+  assert(run1.kind == WASMTIME_EXTERN_FUNC);
 
+  ok = wasmtime_instance_export_get(context2, &instance2, "run", 3, &run2);
+  assert(ok);
+  assert(run2.kind == WASMTIME_EXTERN_FUNC);
+  
   //get future
   std::array<wasmtime_val_t, 0> results;
   call_future1.reset(wasmtime_func_call_async(
-      context1, &run.of.func, NULL, 0,
+      context1, &run1.of.func, NULL, 0,
       results.data(), results.size(), &trap_ptr, &error_ptr));
  
   if (error_ptr) {
@@ -238,7 +235,7 @@ int main() {
   }
 
   call_future2.reset(wasmtime_func_call_async(
-      context2, &run.of.func, NULL, 0,
+      context2, &run2.of.func, NULL, 0,
       results.data(), results.size(), &trap_ptr, &error_ptr));
 
   if (error_ptr) {
